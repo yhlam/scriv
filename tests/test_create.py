@@ -6,20 +6,20 @@ from pathlib import Path
 import freezegun
 
 from scriv.config import Config
-from scriv.create import new_fragment_contents, new_fragment_path
+from scriv.scriv import Scriv
 
 
 class TestNewFragmentPath:
     """
-    Tests of scriv.create.new_fragment_path.
+    Tests of Scriv.new_fragment_path.
     """
 
     @freezegun.freeze_time("2012-10-01T07:08:09")
     def test_new_fragment_path(self, fake_git):
         fake_git.set_config("github.user", "joedev")
         fake_git.set_branch("master")
-        config = Config(fragment_directory="notes")
-        assert new_fragment_path(config) == Path(
+        scriv = Scriv(config=Config(fragment_directory="notes"))
+        assert scriv.new_fragment_path() == Path(
             "notes/20121001_070809_joedev.rst"
         )
 
@@ -27,10 +27,12 @@ class TestNewFragmentPath:
     def test_new_fragment_path_with_custom_main(self, fake_git):
         fake_git.set_config("github.user", "joedev")
         fake_git.set_branch("mainline")
-        config = Config(
-            fragment_directory="notes", main_branches=["main", "mainline"]
+        scriv = Scriv(
+            config=Config(
+                fragment_directory="notes", main_branches=["main", "mainline"]
+            )
         )
-        assert new_fragment_path(config) == Path(
+        assert scriv.new_fragment_path() == Path(
             "notes/20121001_070809_joedev.rst"
         )
 
@@ -38,8 +40,8 @@ class TestNewFragmentPath:
     def test_new_fragment_path_with_branch(self, fake_git):
         fake_git.set_config("github.user", "joedev")
         fake_git.set_branch("joedeveloper/feature-123.4")
-        config = Config(fragment_directory="notes")
-        assert new_fragment_path(config) == Path(
+        scriv = Scriv(config=Config(fragment_directory="notes"))
+        assert scriv.new_fragment_path() == Path(
             "notes/20130225_151617_joedev_feature_123_4.rst"
         )
 
@@ -50,38 +52,38 @@ class TestNewFragmentContents:
     """
 
     def test_new_fragment_contents_rst(self):
-        config = Config(format="rst")
-        contents = new_fragment_contents(config)
+        scriv = Scriv(config=Config(format="rst"))
+        contents = scriv.new_fragment_contents()
         assert contents.startswith(".. ")
         assert ".. A new scriv changelog fragment" in contents
         assert ".. Added\n.. -----\n" in contents
-        assert all(cat in contents for cat in config.categories)
+        assert all(cat in contents for cat in scriv.config.categories)
 
     def test_new_fragment_contents_rst_with_customized_header(self):
-        config = Config(format="rst", rst_header_chars="#~")
-        contents = new_fragment_contents(config)
+        scriv = Scriv(config=Config(format="rst", rst_header_chars="#~"))
+        contents = scriv.new_fragment_contents()
         assert contents.startswith(".. ")
         assert ".. A new scriv changelog fragment" in contents
         assert ".. Added\n.. ~~~~~\n" in contents
-        assert all(cat in contents for cat in config.categories)
+        assert all(cat in contents for cat in scriv.config.categories)
 
     def test_no_categories_rst(self, changelog_d):
         # If the project isn't using categories, then the new fragment is
         # simpler with no heading.
-        config = Config(categories=[])
-        contents = new_fragment_contents(config)
+        scriv = Scriv(config=Config(categories=[]))
+        contents = scriv.new_fragment_contents()
         assert ".. A new scriv changelog fragment." in contents
         assert "- A bullet item for this fragment. EDIT ME!" in contents
         assert "Uncomment the header that is right" not in contents
         assert ".. Added" not in contents
 
     def test_new_fragment_contents_md(self):
-        config = Config(format="md")
-        contents = new_fragment_contents(config)
+        scriv = Scriv(config=Config(format="md"))
+        contents = scriv.new_fragment_contents()
         assert contents.startswith("<!--")
         assert "A new scriv changelog fragment" in contents
         assert "### Added\n" in contents
-        assert all(cat in contents for cat in config.categories)
+        assert all(cat in contents for cat in scriv.config.categories)
 
 
 class TestCreate:
