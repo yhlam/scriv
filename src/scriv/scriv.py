@@ -16,6 +16,7 @@ from .gitinfo import current_branch_name, user_nick
 class Fragment:
     """A changelog fragment."""
 
+    format = attr.ib(type=str)
     path = attr.ib(type=Path)
     content = attr.ib(type=str)
 
@@ -39,8 +40,9 @@ class Scriv:
         Create a new fragment.
         """
         return Fragment(
-            new_fragment_path(self.config),
-            new_fragment_content(self.config),
+            format=self.config.format,
+            path=new_fragment_path(self.config),
+            content=new_fragment_content(self.config),
         )
 
 
