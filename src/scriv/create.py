@@ -2,7 +2,6 @@
 
 import logging
 import sys
-from pathlib import Path
 from typing import Optional
 
 import click
@@ -35,19 +34,20 @@ def create(add: Optional[bool], edit: Optional[bool]) -> None:
         edit = git_config_bool("scriv.create.edit")
 
     scriv = Scriv()
-    if not Path(scriv.config.fragment_directory).exists():
+    frag = scriv.new_fragment()
+    file_path = frag.path
+    if not file_path.parent.exists():
         sys.exit(
             "Output directory {!r} doesn't exist, please create it.".format(
-                scriv.config.fragment_directory
+                str(file_path.parent)
             )
         )
 
-    file_path = scriv.new_fragment_path()
     if file_path.exists():
         sys.exit("File {} already exists, not overwriting".format(file_path))
 
     logger.info("Creating {}".format(file_path))
-    file_path.write_text(scriv.new_fragment_contents())
+    frag.write()
 
     if edit:
         git_edit(file_path)
