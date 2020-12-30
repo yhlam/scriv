@@ -1,18 +1,13 @@
 """Collecting fragments."""
 
-import datetime
 import logging
-from pathlib import Path
 from typing import Optional
 
 import click
 import click_log
-import jinja2
 
-from .format import get_format_tools
 from .gitinfo import git_add, git_config_bool, git_edit, git_rm
 from .scriv import Scriv
-from .util import cut_at_line
 
 logger = logging.getLogger()
 
@@ -47,46 +42,19 @@ def collect(
     scriv = Scriv()
     logger.info("Collecting from {}".format(scriv.config.fragment_directory))
     frags = scriv.fragments_to_combine()
-    sections = scriv.combine_fragments(frags)
 
-    changelog = Path(scriv.config.output_file)
-    newline = ""
-    if changelog.exists():
-        with changelog.open("r") as f:
-            changelog_text = f.read()
-            if f.newlines:  # .newlines may be None, str, or tuple
-                if isinstance(f.newlines, str):
-                    newline = f.newlines
-                else:
-                    newline = f.newlines[0]
-        text_before, text_after = cut_at_line(
-            changelog_text, scriv.config.insert_marker
-        )
-    else:
-        text_before = ""
-        text_after = ""
+    changelog = scriv.changelog()
+    changelog.read()
 
-    format_tools = get_format_tools(scriv.config.format, scriv.config)
-    title_data = {
-        "date": datetime.datetime.now(),
-        "version": version or scriv.config.version,
-    }
-    new_title = jinja2.Template(scriv.config.entry_title_template).render(
-        config=scriv.config, **title_data
-    )
-    if new_title.strip():
-        new_header = format_tools.format_header(new_title)
-    else:
-        new_header = ""
-    new_text = format_tools.format_sections(sections)
-    with changelog.open("w", newline=newline or None) as f:
-        f.write(text_before + new_header + new_text + text_after)
+    new_header = changelog.entry_header(version=version)
+    new_text = changelog.entry_text(scriv.combine_fragments(frags))
+    changelog.write(new_header, new_text)
 
     if edit:
-        git_edit(changelog)
+        git_edit(changelog.path)
 
     if add:
-        git_add(changelog)
+        git_add(changelog.path)
 
     if not keep:
         for frag in frags:

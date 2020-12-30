@@ -14,7 +14,7 @@ import jinja2
 from .config import Config
 from .format import SectionDict, get_format_tools
 from .gitinfo import current_branch_name, user_nick
-from .util import order_dict
+from .util import cut_at_line, order_dict
 
 
 @attr.s
@@ -38,6 +38,58 @@ class Fragment:
     def read(self) -> None:
         """Read the content of the fragment."""
         self.content = self.path.read_text()
+
+
+@attr.s
+class Changelog:
+    """A changelog file."""
+
+    path = attr.ib(type=Path)
+    config = attr.ib(type=Config)
+    newline = attr.ib(type=str, default="")
+    text_before = attr.ib(type=str, default="")
+    text_after = attr.ib(type=str, default="")
+
+    def read(self) -> None:
+        """Read the changelog if it exists."""
+        if self.path.exists():
+            with self.path.open("r") as f:
+                changelog_text = f.read()
+                if f.newlines:  # .newlines may be None, str, or tuple
+                    if isinstance(f.newlines, str):
+                        self.newline = f.newlines
+                    else:
+                        self.newline = f.newlines[0]
+            self.text_before, self.text_after = cut_at_line(
+                changelog_text, self.config.insert_marker
+            )
+
+    def entry_header(self, date=None, version=None) -> str:
+        """Format the header for a new entry."""
+        format_tools = get_format_tools(self.config.format, self.config)
+        title_data = {
+            "date": date or datetime.datetime.now(),
+            "version": version or self.config.version,
+        }
+        new_title = jinja2.Template(self.config.entry_title_template).render(
+            config=self.config, **title_data
+        )
+        if new_title.strip():
+            new_header = format_tools.format_header(new_title)
+        else:
+            new_header = ""
+        return new_header
+
+    def entry_text(self, sections: SectionDict) -> str:
+        """Format the text of a new entry."""
+        format_tools = get_format_tools(self.config.format, self.config)
+        new_text = format_tools.format_sections(sections)
+        return new_text
+
+    def write(self, header: str, text: str) -> None:
+        """Write the changelog, with a new entry."""
+        with self.path.open("w", newline=self.newline or None) as f:
+            f.write(self.text_before + header + text + self.text_after)
 
 
 class Scriv:
@@ -85,6 +137,13 @@ class Scriv:
                 sections[section].extend(paragraphs)
         sections = order_dict(sections, [None] + self.config.categories)
         return sections
+
+    def changelog(self) -> Changelog:
+        """Get the Changelog object."""
+        return Changelog(
+            path=Path(self.config.output_file),
+            config=self.config,
+        )
 
 
 def new_fragment_path(config: Config) -> Path:
