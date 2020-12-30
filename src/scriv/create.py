@@ -7,7 +7,6 @@ from typing import Optional
 import click
 import click_log
 
-from .collect import sections_from_file
 from .gitinfo import git_add, git_config_bool, git_edit
 from .scriv import Scriv
 
@@ -51,7 +50,7 @@ def create(add: Optional[bool], edit: Optional[bool]) -> None:
 
     if edit:
         git_edit(file_path)
-        sections = sections_from_file(scriv.config, file_path)
+        sections = scriv.sections_from_fragment(frag)
         if not sections:
             logger.info("Empty fragment, aborting...")
             file_path.unlink()
